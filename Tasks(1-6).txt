@@ -1,0 +1,153 @@
+1. Topics taught in October
+
+db.topics.find({
+    "date": { $gte: ISODate("2020-10-01"), $lte: ISODate("2020-10-31") }
+}).pretty();
+
+
+
+
+
+2. Tasks with due date in October
+
+db.tasks.find({
+    "due_date": { $gte: ISODate("2020-10-01"), $lte: ISODate("2020-10-31") }
+}).pretty();
+
+ Explanation:
+- The first query retrieves topics taught in October by querying the `topics` collection for documents where the `date` field falls within October.
+- The second query fetches tasks with a due date in October from the `tasks` collection using a similar date range query.
+
+
+2. **Find all the company drives which appeared between 15 Oct 2020 and 31 Oct 2020**
+
+
+db.companyDrives.find({
+    "drive_date": { $gte: ISODate("2020-10-15"), $lte: ISODate("2020-10-31") }
+}).pretty();
+
+
+Comments and Explanation:
+- This query retrieves all company drives that occurred between October 15th and October 31st, 2020, from the `companyDrives` collection.
+
+
+
+3. Find all the company drives and students who appeared for the placement**
+
+db.companyDrives.aggregate([
+    {
+        $lookup: {
+            from: "users",
+            localField: "students_attended.user_id",
+            foreignField: "_id",
+            as: "students"
+        }
+    },
+    {
+        $project: {
+            "company_name": 1,
+            "drive_date": 1,
+            "students": {
+                $filter: {
+                    input: "$students",
+                    as: "student",
+                    cond: { $eq: ["$$student._id", "$students_attended.user_id"] }
+                }
+            }
+        }
+    }
+]).pretty();
+
+
+Comments and Explanation:
+- This aggregation pipeline joins the `companyDrives` collection with `users` to retrieve details of students who attended each company drive.
+- It uses $lookup to perform a left outer join on `students_attended.user_id` and `_id` in the `users` collection.
+- $filter is used to match and filter students who attended the drive based on their _id.
+
+
+
+4. **Find the number of problems solved by the user in codekata**
+
+
+db.codekata.aggregate([
+    {
+        $group: {
+            _id: "$user_id",
+            total_problems_solved: { $sum: "$problems_solved" }
+        }
+    }
+]).pretty();
+
+
+Comments and Explanation:
+- This aggregation query calculates the total number of problems solved by each user in the `codekata` collection.
+- $group stage groups documents by user_id and computes the sum of problems_solved for each user.
+
+
+
+5. **Find all the mentors who have more than 15 mentees**
+
+
+
+db.mentors.find({
+    "students_count": { $gt: 15 }
+}).pretty();
+
+
+Comments and Explanation:
+- This query retrieves all mentors from the `mentors` collection who have more than 15 mentees (students_count field greater than 15).
+- It filters documents where students_count meets the specified condition using the $gt (greater than) operator.
+
+
+6. **Find the number of users who were absent and did not submit tasks between 15 Oct 2020 and 31 Oct 2020**
+
+
+
+db.attendance.aggregate([
+    {
+        $lookup: {
+            from: "tasks",
+            let: { user_id: "$user_id" },
+            pipeline: [
+                {
+                    $match: {
+                        $expr: {
+                            $and: [
+                                { $eq: ["$user_id", "$$user_id"] },
+                                { $not: { $eq: ["$submitted", true] } },
+                                { $gte: ["$due_date", ISODate("2020-10-15")] },
+                                { $lte: ["$due_date", ISODate("2020-10-31")] }
+                            ]
+                        }
+                    }
+                }
+            ],
+            as: "tasks_not_submitted"
+        }
+    },
+    {
+        $match: {
+            "present": false,
+            "tasks_not_submitted": { $exists: true, $ne: [] }
+        }
+    },
+    {
+        $count: "users_count"
+    }
+]);
+
+
+
+
+
+Comments and Explanation:
+- This aggregation pipeline fetches the number of users who were absent (present: false in attendance collection) and did not submit tasks (submitted: false in tasks collection) between October 15th and October 31st, 2020.
+- $lookup stage joins attendance with tasks based on user_id.
+- $match stage filters documents where users were absent and did not submit tasks during the specified period.
+- $count stage counts the number of matching users.
+
+
+---
+
+
+
